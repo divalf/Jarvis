@@ -1,12 +1,12 @@
 // Prisma schema for Tempo+ (placeholder name)
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum SpaceRole {
@@ -189,4 +189,13 @@ model ReflectionEntry {
 
   @@unique([userId, date])
   @@index([date])
+}
+
+model WaitlistSignup {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  goal      String?  // foco | descanso | organização | espiritualidade
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

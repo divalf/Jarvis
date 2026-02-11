@@ -1,0 +1,192 @@
+// Prisma schema for Tempo+ (placeholder name)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SpaceRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum TaskStatus {
+  BACKLOG
+  DOING
+  DONE
+}
+
+enum CalendarEventVisibility {
+  DEFAULT
+  PRIVATE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // NextAuth
+  accounts Account[]
+  sessions Session[]
+
+  // App
+  memberships SpaceMember[]
+  tasks       Task[]
+  events      CalendarEvent[]
+  routines    Routine[]
+  reflections ReflectionEntry[]
+}
+
+// --- NextAuth models (Prisma Adapter) ---
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// --- App models ---
+model Space {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members   SpaceMember[]
+  tasks     Task[]
+  events    CalendarEvent[]
+  routines  Routine[]
+}
+
+model SpaceMember {
+  id        String    @id @default(cuid())
+  spaceId   String
+  userId    String
+  role      SpaceRole @default(EDITOR)
+  createdAt DateTime  @default(now())
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, userId])
+  @@index([userId])
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  spaceId     String
+  creatorId   String
+
+  title       String
+  notes       String?
+  status      TaskStatus @default(BACKLOG)
+  dueAt       DateTime?
+  estimateMin Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  space   Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  creator User  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([spaceId, status])
+  @@index([creatorId])
+}
+
+model CalendarEvent {
+  id          String  @id @default(cuid())
+  spaceId     String
+  creatorId   String
+
+  title       String
+  description String?
+  startAt     DateTime
+  endAt       DateTime
+  allDay      Boolean @default(false)
+  visibility  CalendarEventVisibility @default(DEFAULT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  space   Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  creator User  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([spaceId, startAt])
+}
+
+model Routine {
+  id        String   @id @default(cuid())
+  spaceId   String
+  creatorId String
+
+  name      String
+  // RFC 5545 RRULE string (ex: "FREQ=DAILY;INTERVAL=1")
+  rrule     String
+  stepsJson Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  space   Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  creator User  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([spaceId])
+}
+
+model ReflectionEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime // store at 00:00 UTC for the day
+
+  title     String?
+  content   String
+  shared    Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([date])
+}

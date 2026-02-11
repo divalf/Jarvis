@@ -1,31 +1,110 @@
 import { redirect } from "next/navigation";
+
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { ensurePersonalSpace } from "@/lib/app-data";
+import { createTask } from "@/app/app/actions";
+import TaskToggle from "@/app/app/task-toggle";
 
 export default async function AppHome() {
   const session = await auth();
-  if (!session?.user) redirect("/signin");
+  if (!session?.user?.email) redirect("/signin");
+
+  const dbUser = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (!dbUser) {
+    // In case NextAuth created a session but user row isn't ready.
+    redirect("/signin");
+  }
+
+  const space = await ensurePersonalSpace(dbUser.id);
+
+  const tasks = await prisma.task.findMany({
+    where: { spaceId: space.id },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    take: 50,
+  });
+
+  const todo = tasks.filter((t) => t.status !== "DONE");
+  const done = tasks.filter((t) => t.status === "DONE");
 
   return (
-    <main className="p-6">
-      <h1 className="text-2xl font-semibold">Dashboard (MVP)</h1>
-      <p className="mt-2 text-slate-600">
-        Bem-vindo, {session.user.name ?? session.user.email}.
-      </p>
+    <div className="grid gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          Hoje
+        </h1>
+        <p className="mt-1 text-sm text-slate-600">
+          Espaço: <span className="font-medium">{space.name}</span>
+        </p>
+      </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
-        <section className="rounded-xl border bg-white p-4">
-          <h2 className="font-medium">Hoje</h2>
-          <p className="mt-1 text-sm text-slate-600">Tarefas e compromissos do dia.</p>
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-base font-semibold text-slate-900">Tarefas</h2>
+          <span className="text-xs text-slate-500">MVP • lista</span>
+        </div>
+
+        <form action={createTask} className="mt-4 flex gap-2">
+          <input
+            name="title"
+            className="h-11 flex-1 rounded-md border border-slate-300 bg-white px-3 outline-none focus:border-blue-600"
+            placeholder="Adicionar tarefa…"
+          />
+          <button className="h-11 rounded-md bg-blue-600 px-4 font-medium text-white hover:bg-blue-700">
+            Criar
+          </button>
+        </form>
+
+        <div className="mt-6 grid gap-2">
+          {todo.length === 0 ? (
+            <p className="text-sm text-slate-600">Sem tarefas por aqui. 👌</p>
+          ) : (
+            todo.map((t) => (
+              <div
+                key={t.id}
+                className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2"
+              >
+                <TaskToggle taskId={t.id} checked={t.status === "DONE"} />
+                <div className="flex-1 text-sm text-slate-900">{t.title}</div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {done.length ? (
+          <details className="mt-6">
+            <summary className="cursor-pointer text-sm text-slate-600">
+              Concluídas ({done.length})
+            </summary>
+            <div className="mt-3 grid gap-2">
+              {done.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2"
+                >
+                  <TaskToggle taskId={t.id} checked={true} />
+                  <div className="flex-1 text-sm text-slate-500 line-through">
+                    {t.title}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        ) : null}
+      </section>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-900">Timer & Pausas</h2>
+          <p className="mt-2 text-sm text-slate-600">(próximo) Pomodoro simples.</p>
         </section>
-        <section className="rounded-xl border bg-white p-4">
-          <h2 className="font-medium">Timer & Pausas</h2>
-          <p className="mt-1 text-sm text-slate-600">Pomodoro simples (em breve).</p>
-        </section>
-        <section className="rounded-xl border bg-white p-4">
-          <h2 className="font-medium">Reflexão</h2>
-          <p className="mt-1 text-sm text-slate-600">Um prompt por dia (em breve).</p>
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-900">Reflexão</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            (próximo) versículo/prompt do dia e salvar.
+          </p>
         </section>
       </div>
-    </main>
+    </div>
   );
 }

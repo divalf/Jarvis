@@ -6,6 +6,7 @@ import { ensurePersonalSpace } from "@/lib/app-data";
 import { createEvent, createTask } from "@/app/app/actions";
 import EventDelete from "@/app/app/event-delete";
 import TaskToggle from "@/app/app/task-toggle";
+import Pomodoro from "@/app/app/pomodoro";
 
 export default async function AppHome() {
   const session = await auth();
@@ -164,7 +165,9 @@ export default async function AppHome() {
       <div className="grid gap-4 md:grid-cols-2">
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-base font-semibold text-slate-900">Timer & Pausas</h2>
-          <p className="mt-2 text-sm text-slate-600">(próximo) Pomodoro simples.</p>
+          <div className="mt-4">
+            <Pomodoro />
+          </div>
         </section>
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-base font-semibold text-slate-900">Reflexão</h2>

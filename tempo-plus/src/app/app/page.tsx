@@ -7,6 +7,7 @@ import { createEvent, createTask } from "@/app/app/actions";
 import EventDelete from "@/app/app/event-delete";
 import TaskToggle from "@/app/app/task-toggle";
 import Pomodoro from "@/app/app/pomodoro";
+import ReflectionEditor from "@/app/app/reflection-editor";
 
 export default async function AppHome() {
   const session = await auth();
@@ -40,6 +41,11 @@ export default async function AppHome() {
     },
     orderBy: [{ startAt: "asc" }],
     take: 20,
+  });
+
+  const dateUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const reflection = await prisma.reflectionEntry.findUnique({
+    where: { userId_date: { userId: dbUser.id, date: dateUTC } },
   });
 
   const todo = tasks.filter((t) => t.status !== "DONE");
@@ -171,9 +177,9 @@ export default async function AppHome() {
         </section>
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-base font-semibold text-slate-900">Reflexão</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            (próximo) versículo/prompt do dia e salvar.
-          </p>
+          <div className="mt-4">
+            <ReflectionEditor initialContent={reflection?.content ?? ""} dateLabel={"Hoje"} />
+          </div>
         </section>
       </div>
     </div>

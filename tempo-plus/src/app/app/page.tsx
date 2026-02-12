@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensurePersonalSpace } from "@/lib/app-data";
-import { createTask } from "@/app/app/actions";
+import { createEvent, createTask } from "@/app/app/actions";
+import EventDelete from "@/app/app/event-delete";
 import TaskToggle from "@/app/app/task-toggle";
 
 export default async function AppHome() {
@@ -22,6 +23,22 @@ export default async function AppHome() {
     where: { spaceId: space.id },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     take: 50,
+  });
+
+  const now = new Date();
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(now);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const events = await prisma.calendarEvent.findMany({
+    where: {
+      spaceId: space.id,
+      startAt: { lte: endOfDay },
+      endAt: { gte: startOfDay },
+    },
+    orderBy: [{ startAt: "asc" }],
+    take: 20,
   });
 
   const todo = tasks.filter((t) => t.status !== "DONE");
@@ -91,6 +108,57 @@ export default async function AppHome() {
             </div>
           </details>
         ) : null}
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-base font-semibold text-slate-900">Agenda (hoje)</h2>
+          <span className="text-xs text-slate-500">MVP • eventos internos</span>
+        </div>
+
+        <form action={createEvent} className="mt-4 grid gap-2 md:grid-cols-4">
+          <input
+            name="title"
+            className="h-11 rounded-md border border-slate-300 bg-white px-3 outline-none focus:border-blue-600 md:col-span-2"
+            placeholder="Novo evento…"
+          />
+          <input
+            name="startAt"
+            type="datetime-local"
+            className="h-11 rounded-md border border-slate-300 bg-white px-3 outline-none focus:border-blue-600"
+          />
+          <input
+            name="endAt"
+            type="datetime-local"
+            className="h-11 rounded-md border border-slate-300 bg-white px-3 outline-none focus:border-blue-600"
+          />
+          <button className="h-11 rounded-md bg-blue-600 px-4 font-medium text-white hover:bg-blue-700 md:col-span-4 md:justify-self-end">
+            Criar evento
+          </button>
+        </form>
+
+        <div className="mt-6 grid gap-2">
+          {events.length === 0 ? (
+            <p className="text-sm text-slate-600">Sem eventos hoje.</p>
+          ) : (
+            events.map((ev) => (
+              <div
+                key={ev.id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-slate-900">
+                    {ev.title}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {ev.startAt.toLocaleString()} → {ev.endAt.toLocaleString()}
+                  </div>
+                </div>
+                <EventDelete eventId={ev.id} />
+              </div>
+            ))
+          )}
+        </div>
       </section>
 
       <div className="grid gap-4 md:grid-cols-2">

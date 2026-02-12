@@ -47,3 +47,49 @@ export async function toggleTaskDone(taskId: string, done: boolean) {
 
   revalidatePath("/app");
 }
+
+export async function createEvent(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.email) throw new Error("UNAUTHENTICATED");
+
+  const dbUser = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (!dbUser) throw new Error("USER_NOT_FOUND");
+
+  const title = String(formData.get("title") ?? "").trim();
+  const startAt = String(formData.get("startAt") ?? "").trim();
+  const endAt = String(formData.get("endAt") ?? "").trim();
+  if (!title || !startAt || !endAt) return;
+
+  const start = new Date(startAt);
+  const end = new Date(endAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+  if (end <= start) return;
+
+  const space = await ensurePersonalSpace(dbUser.id);
+
+  await prisma.calendarEvent.create({
+    data: {
+      title,
+      startAt: start,
+      endAt: end,
+      spaceId: space.id,
+      creatorId: dbUser.id,
+    },
+  });
+
+  revalidatePath("/app");
+}
+
+export async function deleteEvent(eventId: string) {
+  const session = await auth();
+  if (!session?.user?.email) throw new Error("UNAUTHENTICATED");
+
+  const dbUser = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (!dbUser) throw new Error("USER_NOT_FOUND");
+
+  const ev = await prisma.calendarEvent.findUnique({ where: { id: eventId }, select: { creatorId: true } });
+  if (!ev || ev.creatorId !== dbUser.id) throw new Error("FORBIDDEN");
+
+  await prisma.calendarEvent.delete({ where: { id: eventId } });
+  revalidatePath("/app");
+}

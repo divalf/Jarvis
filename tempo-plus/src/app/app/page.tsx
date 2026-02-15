@@ -55,7 +55,12 @@ export default async function AppHome({
 
   const tasks = await prisma.task.findMany({
     where: taskWhere,
-    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    orderBy: [
+      { status: "asc" },
+      // With a due date first, then backlog items.
+      { dueAt: { sort: "asc", nulls: "last" } },
+      { createdAt: "desc" },
+    ],
     take: 50,
   });
 
@@ -76,6 +81,12 @@ export default async function AppHome({
 
   const todo = tasks.filter((t) => t.status !== "DONE");
   const done = tasks.filter((t) => t.status === "DONE");
+
+  const fmtDateTime = new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+  const formatDateTime = (d: Date) => fmtDateTime.format(d);
 
   return (
     <div className="grid gap-6">
@@ -132,8 +143,15 @@ export default async function AppHome({
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm text-slate-900">{t.title}</div>
                     {t.dueAt ? (
-                      <div className="text-xs text-slate-500">
-                        Prazo: {t.dueAt.toLocaleString()}
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>
+                          Prazo: <span className="font-medium">{formatDateTime(t.dueAt)}</span>
+                        </span>
+                        {t.dueAt < now ? (
+                          <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700">
+                            Atrasada
+                          </span>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -226,7 +244,7 @@ export default async function AppHome({
                     {ev.title}
                   </div>
                   <div className="text-xs text-slate-500">
-                    {ev.startAt.toLocaleString()} → {ev.endAt.toLocaleString()}
+                    {formatDateTime(ev.startAt)} → {formatDateTime(ev.endAt)}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

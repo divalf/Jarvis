@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { updateEvent } from "@/app/app/event-actions";
+import { useToast } from "@/components/toast";
 
 function getErrorMessage(e: unknown) {
   const msg = e instanceof Error ? e.message : "";
@@ -31,9 +32,11 @@ function toDatetimeLocal(iso: string) {
 }
 
 export default function EventEditModal({ ev }: { ev: EventLike }) {
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const initial = useMemo(
     () => ({
@@ -64,6 +67,7 @@ export default function EventEditModal({ ev }: { ev: EventLike }) {
           setStartAt(initial.startAt);
           setEndAt(initial.endAt);
           setError(null);
+          setSuccess(null);
           setOpen(true);
         }}
       >
@@ -128,6 +132,9 @@ export default function EventEditModal({ ev }: { ev: EventLike }) {
                   O horário de fim precisa ser depois do início.
                 </p>
               ) : null}
+              {success ? (
+                <p className="text-sm text-emerald-700">{success}</p>
+              ) : null}
               {error ? <p className="text-sm text-red-600">{error}</p> : null}
             </div>
 
@@ -153,6 +160,7 @@ export default function EventEditModal({ ev }: { ev: EventLike }) {
                     return;
                   }
                   setError(null);
+                  setSuccess(null);
                   startTransition(async () => {
                     try {
                       await updateEvent({
@@ -161,9 +169,13 @@ export default function EventEditModal({ ev }: { ev: EventLike }) {
                         startAt: startAt || "",
                         endAt: endAt || "",
                       });
-                      setOpen(false);
+                      setSuccess("Salvo.");
+                      toast.push({ message: "Evento atualizado", variant: "success" });
+                      window.setTimeout(() => setOpen(false), 350);
                     } catch (e) {
-                      setError(getErrorMessage(e));
+                      const msg = getErrorMessage(e);
+                      setError(msg);
+                      toast.push({ message: msg, variant: "error" });
                     }
                   });
                 }}

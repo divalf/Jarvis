@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { updateTask } from "@/app/app/task-actions";
+import { useToast } from "@/components/toast";
 
 type TaskLike = {
   id: string;
@@ -33,9 +34,11 @@ function getErrorMessage(e: unknown) {
 }
 
 export default function TaskEditModal({ task }: { task: TaskLike }) {
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const initial = useMemo(
     () => ({
@@ -73,6 +76,7 @@ export default function TaskEditModal({ task }: { task: TaskLike }) {
           setDueAt(initial.dueAt);
           setEstimateMin(initial.estimateMin);
           setError(null);
+          setSuccess(null);
           setOpen(true);
         }}
       >
@@ -155,6 +159,9 @@ export default function TaskEditModal({ task }: { task: TaskLike }) {
               {estimateInvalid ? (
                 <p className="text-sm text-red-600">A estimativa precisa ser um número ≥ 0.</p>
               ) : null}
+              {success ? (
+                <p className="text-sm text-emerald-700">{success}</p>
+              ) : null}
               {error ? <p className="text-sm text-red-600">{error}</p> : null}
             </div>
 
@@ -180,6 +187,7 @@ export default function TaskEditModal({ task }: { task: TaskLike }) {
                     return;
                   }
                   setError(null);
+                  setSuccess(null);
                   startTransition(async () => {
                     try {
                       await updateTask({
@@ -189,9 +197,13 @@ export default function TaskEditModal({ task }: { task: TaskLike }) {
                         dueAt: dueAt || null,
                         estimateMin: estimateVal,
                       });
-                      setOpen(false);
+                      setSuccess("Salvo.");
+                      toast.push({ message: "Tarefa atualizada", variant: "success" });
+                      window.setTimeout(() => setOpen(false), 350);
                     } catch (e) {
-                      setError(getErrorMessage(e));
+                      const msg = getErrorMessage(e);
+                      setError(msg);
+                      toast.push({ message: msg, variant: "error" });
                     }
                   });
                 }}

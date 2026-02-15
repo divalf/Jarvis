@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth, signOut } from "@/lib/auth";
+import ClientProviders from "@/app/app/client-providers";
 
 export default async function AppLayout({
   children,
@@ -36,7 +37,9 @@ export default async function AppLayout({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-6xl px-6 py-8">
+        <ClientProviders>{children}</ClientProviders>
+      </main>
     </div>
   );
 }

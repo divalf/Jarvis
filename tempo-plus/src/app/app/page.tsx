@@ -8,8 +8,14 @@ import EventDelete from "@/app/app/event-delete";
 import TaskToggle from "@/app/app/task-toggle";
 import Pomodoro from "@/app/app/pomodoro";
 import ReflectionEditor from "@/app/app/reflection-editor";
+import TaskEditModal from "@/app/app/task-edit-modal";
+import TaskFilters from "@/app/app/task-filters";
 
-export default async function AppHome() {
+export default async function AppHome({
+  searchParams,
+}: {
+  searchParams?: Promise<{ filter?: string }>;
+}) {
   const session = await auth();
   if (!session?.user?.email) redirect("/signin");
 
@@ -21,17 +27,36 @@ export default async function AppHome() {
 
   const space = await ensurePersonalSpace(dbUser.id);
 
-  const tasks = await prisma.task.findMany({
-    where: { spaceId: space.id },
-    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-    take: 50,
-  });
-
   const now = new Date();
   const startOfDay = new Date(now);
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(now);
   endOfDay.setHours(23, 59, 59, 999);
+
+  const sp = (await searchParams) ?? {};
+  const filter = (sp.filter ?? "all").toLowerCase();
+
+  const taskWhere: Record<string, unknown> = {
+    spaceId: space.id,
+  };
+
+  if (filter === "today") {
+    taskWhere.dueAt = { gte: startOfDay, lte: endOfDay };
+  }
+  if (filter === "overdue") {
+    taskWhere.dueAt = { lt: startOfDay };
+    taskWhere.status = { not: "DONE" };
+  }
+  if (filter === "backlog") {
+    taskWhere.dueAt = null;
+    taskWhere.status = { not: "DONE" };
+  }
+
+  const tasks = await prisma.task.findMany({
+    where: taskWhere,
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    take: 50,
+  });
 
   const events = await prisma.calendarEvent.findMany({
     where: {
@@ -63,9 +88,22 @@ export default async function AppHome() {
       </div>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-base font-semibold text-slate-900">Tarefas</h2>
-          <span className="text-xs text-slate-500">MVP • lista</span>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-base font-semibold text-slate-900">Tarefas</h2>
+            <span className="text-xs text-slate-500">MVP • lista</span>
+          </div>
+          <TaskFilters
+            current={
+              filter === "today"
+                ? "today"
+                : filter === "overdue"
+                  ? "overdue"
+                  : filter === "backlog"
+                    ? "backlog"
+                    : "all"
+            }
+          />
         </div>
 
         <form action={createTask} className="mt-4 flex gap-2">
@@ -86,10 +124,28 @@ export default async function AppHome() {
             todo.map((t) => (
               <div
                 key={t.id}
-                className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2"
+                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2"
               >
-                <TaskToggle taskId={t.id} checked={t.status === "DONE"} />
-                <div className="flex-1 text-sm text-slate-900">{t.title}</div>
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <TaskToggle taskId={t.id} checked={t.status === "DONE"} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm text-slate-900">{t.title}</div>
+                    {t.dueAt ? (
+                      <div className="text-xs text-slate-500">
+                        Prazo: {t.dueAt.toLocaleString()}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                <TaskEditModal
+                  task={{
+                    id: t.id,
+                    title: t.title,
+                    notes: t.notes ?? null,
+                    dueAt: t.dueAt ? t.dueAt.toISOString() : null,
+                    estimateMin: t.estimateMin ?? null,
+                  }}
+                />
               </div>
             ))
           )}
@@ -104,12 +160,23 @@ export default async function AppHome() {
               {done.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2"
                 >
-                  <TaskToggle taskId={t.id} checked={true} />
-                  <div className="flex-1 text-sm text-slate-500 line-through">
-                    {t.title}
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <TaskToggle taskId={t.id} checked={true} />
+                    <div className="min-w-0 flex-1 text-sm text-slate-500 line-through">
+                      {t.title}
+                    </div>
                   </div>
+                  <TaskEditModal
+                    task={{
+                      id: t.id,
+                      title: t.title,
+                      notes: t.notes ?? null,
+                      dueAt: t.dueAt ? t.dueAt.toISOString() : null,
+                      estimateMin: t.estimateMin ?? null,
+                    }}
+                  />
                 </div>
               ))}
             </div>

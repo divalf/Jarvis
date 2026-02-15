@@ -58,12 +58,13 @@ export async function createEvent(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const startAt = String(formData.get("startAt") ?? "").trim();
   const endAt = String(formData.get("endAt") ?? "").trim();
-  if (!title || !startAt || !endAt) return;
+  if (!title) throw new Error("TITLE_REQUIRED");
+  if (!startAt || !endAt) throw new Error("DATES_REQUIRED");
 
   const start = new Date(startAt);
   const end = new Date(endAt);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
-  if (end <= start) return;
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) throw new Error("INVALID_DATE");
+  if (end <= start) throw new Error("END_BEFORE_START");
 
   const space = await ensurePersonalSpace(dbUser.id);
 

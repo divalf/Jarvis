@@ -41,3 +41,17 @@ export async function updateTask(input: unknown) {
 
   revalidatePath("/app");
 }
+
+export async function deleteTask(taskId: string) {
+  const session = await auth();
+  if (!session?.user?.email) throw new Error("UNAUTHENTICATED");
+
+  const dbUser = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (!dbUser) throw new Error("USER_NOT_FOUND");
+
+  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { creatorId: true } });
+  if (!task || task.creatorId !== dbUser.id) throw new Error("FORBIDDEN");
+
+  await prisma.task.delete({ where: { id: taskId } });
+  revalidatePath("/app");
+}

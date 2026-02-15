@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensurePersonalSpace } from "@/lib/app-data";
-import { createEvent, createTask } from "@/app/app/actions";
+import { createTask } from "@/app/app/actions";
 import EventDelete from "@/app/app/event-delete";
 import EventEditModal from "@/app/app/event-edit-modal";
+import EventCreateForm from "@/app/app/event-create-form";
 import TaskToggle from "@/app/app/task-toggle";
+import TaskDelete from "@/app/app/task-delete";
 import Pomodoro from "@/app/app/pomodoro";
 import ReflectionEditor from "@/app/app/reflection-editor";
 import TaskEditModal from "@/app/app/task-edit-modal";
@@ -156,15 +158,18 @@ export default async function AppHome({
                     ) : null}
                   </div>
                 </div>
-                <TaskEditModal
-                  task={{
-                    id: t.id,
-                    title: t.title,
-                    notes: t.notes ?? null,
-                    dueAt: t.dueAt ? t.dueAt.toISOString() : null,
-                    estimateMin: t.estimateMin ?? null,
-                  }}
-                />
+                <div className="flex items-center gap-3">
+                  <TaskEditModal
+                    task={{
+                      id: t.id,
+                      title: t.title,
+                      notes: t.notes ?? null,
+                      dueAt: t.dueAt ? t.dueAt.toISOString() : null,
+                      estimateMin: t.estimateMin ?? null,
+                    }}
+                  />
+                  <TaskDelete taskId={t.id} />
+                </div>
               </div>
             ))
           )}
@@ -187,15 +192,18 @@ export default async function AppHome({
                       {t.title}
                     </div>
                   </div>
-                  <TaskEditModal
-                    task={{
-                      id: t.id,
-                      title: t.title,
-                      notes: t.notes ?? null,
-                      dueAt: t.dueAt ? t.dueAt.toISOString() : null,
-                      estimateMin: t.estimateMin ?? null,
-                    }}
-                  />
+                  <div className="flex items-center gap-3">
+                    <TaskEditModal
+                      task={{
+                        id: t.id,
+                        title: t.title,
+                        notes: t.notes ?? null,
+                        dueAt: t.dueAt ? t.dueAt.toISOString() : null,
+                        estimateMin: t.estimateMin ?? null,
+                      }}
+                    />
+                    <TaskDelete taskId={t.id} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -209,26 +217,7 @@ export default async function AppHome({
           <span className="text-xs text-slate-500">MVP • eventos internos</span>
         </div>
 
-        <form action={createEvent} className="mt-4 grid gap-2 md:grid-cols-4">
-          <input
-            name="title"
-            className="h-11 rounded-md border border-slate-300 bg-white px-3 outline-none focus:border-blue-600 md:col-span-2"
-            placeholder="Novo evento…"
-          />
-          <input
-            name="startAt"
-            type="datetime-local"
-            className="h-11 rounded-md border border-slate-300 bg-white px-3 outline-none focus:border-blue-600"
-          />
-          <input
-            name="endAt"
-            type="datetime-local"
-            className="h-11 rounded-md border border-slate-300 bg-white px-3 outline-none focus:border-blue-600"
-          />
-          <button className="h-11 rounded-md bg-blue-600 px-4 font-medium text-white hover:bg-blue-700 md:col-span-4 md:justify-self-end">
-            Criar evento
-          </button>
-        </form>
+        <EventCreateForm />
 
         <div className="mt-6 grid gap-2">
           {events.length === 0 ? (

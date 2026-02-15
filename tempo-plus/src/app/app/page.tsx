@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ensurePersonalSpace } from "@/lib/app-data";
 import { createEvent, createTask } from "@/app/app/actions";
 import EventDelete from "@/app/app/event-delete";
+import EventEditModal from "@/app/app/event-edit-modal";
 import TaskToggle from "@/app/app/task-toggle";
 import Pomodoro from "@/app/app/pomodoro";
 import ReflectionEditor from "@/app/app/reflection-editor";
@@ -228,7 +229,17 @@ export default async function AppHome({
                     {ev.startAt.toLocaleString()} → {ev.endAt.toLocaleString()}
                   </div>
                 </div>
-                <EventDelete eventId={ev.id} />
+                <div className="flex items-center gap-3">
+                  <EventEditModal
+                    ev={{
+                      id: ev.id,
+                      title: ev.title,
+                      startAt: ev.startAt.toISOString(),
+                      endAt: ev.endAt.toISOString(),
+                    }}
+                  />
+                  <EventDelete eventId={ev.id} />
+                </div>
               </div>
             ))
           )}

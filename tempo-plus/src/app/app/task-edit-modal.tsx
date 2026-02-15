@@ -24,9 +24,18 @@ function toDatetimeLocal(iso: string | null) {
   return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
 }
 
+function getErrorMessage(e: unknown) {
+  const msg = e instanceof Error ? e.message : "";
+  if (msg.includes("UNAUTHENTICATED")) return "Sua sessão expirou. Faça login novamente.";
+  if (msg.includes("FORBIDDEN")) return "Você não tem permissão para editar esta tarefa.";
+  if (msg.includes("INVALID_DUE_AT")) return "Prazo inválido. Confira o campo.";
+  return "Não consegui salvar. Confira os campos.";
+}
+
 export default function TaskEditModal({ task }: { task: TaskLike }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const initial = useMemo(
     () => ({
@@ -42,6 +51,10 @@ export default function TaskEditModal({ task }: { task: TaskLike }) {
   const [notes, setNotes] = useState(initial.notes);
   const [dueAt, setDueAt] = useState(initial.dueAt);
   const [estimateMin, setEstimateMin] = useState(initial.estimateMin);
+
+  const trimmedTitle = title.trim();
+  const estimateVal = estimateMin.trim().length ? Number(estimateMin) : null;
+  const estimateInvalid = estimateVal !== null && (!Number.isFinite(estimateVal) || estimateVal < 0);
 
   // Avoid setState-in-effect: reset on open.
   useEffect(() => {
@@ -59,6 +72,7 @@ export default function TaskEditModal({ task }: { task: TaskLike }) {
           setNotes(initial.notes);
           setDueAt(initial.dueAt);
           setEstimateMin(initial.estimateMin);
+          setError(null);
           setOpen(true);
         }}
       >
@@ -115,6 +129,13 @@ export default function TaskEditModal({ task }: { task: TaskLike }) {
                     value={dueAt}
                     onChange={(e) => setDueAt(e.target.value)}
                   />
+                  <button
+                    type="button"
+                    className="w-fit text-xs text-slate-500 hover:text-slate-900"
+                    onClick={() => setDueAt("")}
+                  >
+                    Limpar prazo
+                  </button>
                 </label>
 
                 <label className="grid gap-1">
@@ -130,6 +151,11 @@ export default function TaskEditModal({ task }: { task: TaskLike }) {
                   />
                 </label>
               </div>
+
+              {estimateInvalid ? (
+                <p className="text-sm text-red-600">A estimativa precisa ser um número ≥ 0.</p>
+              ) : null}
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
             </div>
 
             <div className="mt-6 flex items-center justify-end gap-2">
@@ -142,18 +168,31 @@ export default function TaskEditModal({ task }: { task: TaskLike }) {
               </button>
               <button
                 type="button"
-                disabled={isPending}
+                disabled={isPending || trimmedTitle.length === 0 || estimateInvalid}
                 className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
                 onClick={() => {
+                  if (trimmedTitle.length === 0) {
+                    setError("O título é obrigatório.");
+                    return;
+                  }
+                  if (estimateInvalid) {
+                    setError("A estimativa precisa ser um número ≥ 0.");
+                    return;
+                  }
+                  setError(null);
                   startTransition(async () => {
-                    await updateTask({
-                      id: task.id,
-                      title,
-                      notes,
-                      dueAt: dueAt || null,
-                      estimateMin: estimateMin ? Number(estimateMin) : null,
-                    });
-                    setOpen(false);
+                    try {
+                      await updateTask({
+                        id: task.id,
+                        title: trimmedTitle,
+                        notes,
+                        dueAt: dueAt || null,
+                        estimateMin: estimateVal,
+                      });
+                      setOpen(false);
+                    } catch (e) {
+                      setError(getErrorMessage(e));
+                    }
                   });
                 }}
               >

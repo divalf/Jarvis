@@ -3,6 +3,15 @@
 import { useMemo, useState, useTransition } from "react";
 import { updateEvent } from "@/app/app/event-actions";
 
+function getErrorMessage(e: unknown) {
+  const msg = e instanceof Error ? e.message : "";
+  if (msg.includes("UNAUTHENTICATED")) return "Sua sessão expirou. Faça login novamente.";
+  if (msg.includes("FORBIDDEN")) return "Você não tem permissão para editar este evento.";
+  if (msg.includes("END_BEFORE_START")) return "O horário de fim precisa ser depois do início.";
+  if (msg.includes("INVALID_DATE")) return "Data/hora inválida. Confira os campos.";
+  return "Não consegui salvar. Confira título e horários.";
+}
+
 type EventLike = {
   id: string;
   title: string;
@@ -38,6 +47,12 @@ export default function EventEditModal({ ev }: { ev: EventLike }) {
   const [title, setTitle] = useState(initial.title);
   const [startAt, setStartAt] = useState(initial.startAt);
   const [endAt, setEndAt] = useState(initial.endAt);
+
+  const trimmedTitle = title.trim();
+  const startMs = startAt ? new Date(startAt).getTime() : NaN;
+  const endMs = endAt ? new Date(endAt).getTime() : NaN;
+  const hasRangeError =
+    Number.isFinite(startMs) && Number.isFinite(endMs) ? endMs <= startMs : false;
 
   return (
     <>
@@ -108,6 +123,11 @@ export default function EventEditModal({ ev }: { ev: EventLike }) {
                 </label>
               </div>
 
+              {hasRangeError ? (
+                <p className="text-sm text-red-600">
+                  O horário de fim precisa ser depois do início.
+                </p>
+              ) : null}
               {error ? <p className="text-sm text-red-600">{error}</p> : null}
             </div>
 
@@ -121,21 +141,29 @@ export default function EventEditModal({ ev }: { ev: EventLike }) {
               </button>
               <button
                 type="button"
-                disabled={isPending}
+                disabled={isPending || trimmedTitle.length === 0 || hasRangeError}
                 className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
                 onClick={() => {
+                  if (trimmedTitle.length === 0) {
+                    setError("O título é obrigatório.");
+                    return;
+                  }
+                  if (hasRangeError) {
+                    setError("O horário de fim precisa ser depois do início.");
+                    return;
+                  }
                   setError(null);
                   startTransition(async () => {
                     try {
                       await updateEvent({
                         id: ev.id,
-                        title,
+                        title: trimmedTitle,
                         startAt: startAt || "",
                         endAt: endAt || "",
                       });
                       setOpen(false);
-                    } catch {
-                      setError("Não consegui salvar. Confira título e horários.");
+                    } catch (e) {
+                      setError(getErrorMessage(e));
                     }
                   });
                 }}
